@@ -1,20 +1,20 @@
 from PIL import Image, ImageDraw
 
-# 512x512 boyutunda yüksek kaliteli bir görsel oluşturalım (192x192 için de aynısı kullanılabilir)
-img = Image.new("RGBA", (512, 512), (25, 53, 65, 255))  # #193541 Lacivert arkaplan
+# Create a clean, high-quality 512x512 icon with solid PNG formatting
+img = Image.new("RGBA", (512, 512), (25, 53, 65, 255))  # #193541 Dark Navy Background
 draw = ImageDraw.Draw(img)
 
-# Dış turuncu çember (#d86d4a)
+# Outer orange circle (#d86d4a)
 draw.ellipse([96, 96, 416, 416], fill=(216, 109, 74, 255))
-# İç krem çember (#f4f0e7)
+# Inner cream circle (#f4f0e7)
 draw.ellipse([140, 140, 372, 372], fill=(244, 240, 231, 255))
 
-# Saat akrep/yelkovan çizgileri (Lacivert)
+# Clock hands (Dark Navy)
 draw.line([256, 180, 256, 260], fill=(25, 53, 65, 255), width=16)
 draw.line([256, 260, 310, 260], fill=(25, 53, 65, 255), width=16)
-# Orta nokta
+# Center dot
 draw.ellipse([244, 248, 268, 272], fill=(25, 53, 65, 255))
 
-# Dosyayı kaydedelim
-img.save("icon.png")
-print("icon.png başarıyla oluşturuldu!")
+# Save strictly as a standard, uncompressed/proper PNG
+img.save("icon.png", "PNG")
+print("icon.png successfully generated and saved!")
