@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<style>
+  body {
+    background: #0d1a21;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+  }
+  .icon-canvas {
+    width: 512px;
+    height: 512px;
+    background: #193541;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 18px;
+    box-sizing: border-box;
+  }
+  .mark {
+    height: 72px;
+    width: 72px;
+    border: 2px solid #efeada80;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    position: relative;
+  }
+  .mark:before, .mark:after {
+    content: "";
+    position: absolute;
+    width: 3px;
+    border-radius: 2px;
+    transform-origin: bottom;
+    background: #d86d4a;
+  }
+  .mark:before { height: 22px; transform: rotate(38deg); }
+  .mark:after { height: 16px; background: #efeada; transform: rotate(164deg); }
+  .brand-name {
+    font-family: Inter, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 42px;
+    letter-spacing: -.04em;
+    color: #efeada;
+  }
+  .brand-name span { color: #d86d4a; }
+</style>
+</head>
+<body>
+  <div class="icon-canvas">
+    <div class="mark"></div>
+    <div class="brand-name">geri<span>sayım</span></div>
+  </div>
+</body>
+</html>
