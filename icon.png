@@ -1,9 +1,1 @@
-from PIL import Image, ImageDraw
-img = Image.new("RGBA", (512, 512), (25, 53, 65, 255))
-draw = ImageDraw.Draw(img)
-draw.ellipse([96, 96, 416, 416], fill=(216, 109, 74, 255))
-draw.ellipse([140, 140, 372, 372], fill=(244, 240, 231, 255))
-draw.line([256, 180, 256, 260], fill=(25, 53, 65, 255), width=16)
-draw.line([256, 260, 310, 260], fill=(25, 53, 65, 255), width=16)
-draw.ellipse([244, 248, 268, 272], fill=(25, 53, 65, 255))
-img.save("icon.png", "PNG")
+iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAABhJREFUeJztwTEBAAAAwqD1T20LL6AAAAAAAH4NCOAAAX1O9fUAAAAASUVORK5CYII=
