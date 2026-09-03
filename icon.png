@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" fill="#193541"/>
-  <circle cx="256" cy="256" r="160" fill="#D86D4A"/>
-  <circle cx="256" cy="256" r="116" fill="#F4F0E7"/>
-  <path d="M256 180 v80 h54" fill="none" stroke="#193541" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="256" cy="260" r="12" fill="#193541"/>
-</svg>
+"icons": [
+    {
+      "src": "https://images.weserv.nl/?url=api.iconify.design/fluent-emoji-flat:stopwatch.svg&w=512&h=512&fit=contain",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
