@@ -1,22 +1,21 @@
 {
   "name": "Geri Sayım",
   "short_name": "Geri Sayım",
+  "description": "Alarm kurulabilen birden fazla geri sayımı takip edebileceğiniz uygulama",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#193541",
   "theme_color": "#193541",
-"icons": [
+  "icons": [
     {
-      "src": "https://images.weserv.nl/?url=raw.githubusercontent.com/omerkucuk032-prog/Geri-Sayim/main/icon.svg&w=512&h=512&output=png",
+      "src": "icon.svg",
       "sizes": "512x512",
-      "type": "icon.svg",
-      "purpose": "any"
+      "type": "image/svg+xml"
     }
     {
-      "src": "https://images.weserv.nl/?url=raw.githubusercontent.com/omerkucuk032-prog/Geri-Sayim/main/icon.svg&w=512&h=512&output=png",
+      "src": "icon.png",
       "sizes": "512x512",
-      "type": "icon.png",
-      "purpose": "any"
+      "type": "image/png+xml"
     }
   ]
 }
