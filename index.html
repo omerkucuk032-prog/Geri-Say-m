@@ -53,77 +53,920 @@ const cat = value => (rules.find(([r]) => r.test(value)) || [,""])[1];
 
 const pad = (n, size=2) => String(n).padStart(size,"0");
 
-const localDate = d => { const x = new Date(d.getTime() - d.getTimezoneOffset()*60000); return x.toISOString().slice(0,10); };
+const localDate = d => {
+    const x = new Date(d.getTime() - d.getTimezoneOffset()*60000);
+    return x.toISOString().slice(0,10);
+};
 
 const localTime = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-const targetText = value => new Intl.DateTimeFormat("tr-TR",{weekday:"short",day:"2-digit",month:"long",hour:"2-digit",minute:"2-digit"}).format(new Date(value));
+const targetText = value =>
+    new Intl.DateTimeFormat("tr-TR",{
+        weekday:"short",
+        day:"2-digit",
+        month:"long",
+        hour:"2-digit",
+        minute:"2-digit"
+    }).format(new Date(value));
 
-const remain = ms => { const s=Math.max(0,ms),days=Math.floor(s/86400000),h=Math.floor(s%86400000/3600000),m=Math.floor(s%3600000/60000),sec=Math.floor(s%60000/1000); return `${days?days+"g ":""}${pad(h)}:${pad(m)}:${pad(sec)}.${pad(Math.floor(s%1000),3)}`; };
+const remain = ms => {
+    const s=Math.max(0,ms),
+    days=Math.floor(s/86400000),
+    h=Math.floor(s%86400000/3600000),
+    m=Math.floor(s%3600000/60000),
+    sec=Math.floor(s%60000/1000);
+
+    return `${days?days+"g ":""}${pad(h)}:${pad(m)}:${pad(sec)}.${pad(Math.floor(s%1000),3)}`;
+};
 
 const compact = list => list.map(({musicDataUrl,...item}) => item);
 
-function persist(list){ items=list; try{localStorage.setItem(KEY,JSON.stringify(compact(list)))}catch{try{localStorage.removeItem(KEY);localStorage.setItem(KEY,JSON.stringify(compact(list)))}catch{}} render(); }
+function persist(list){
+    items=list;
+    try{
+        localStorage.setItem(KEY,JSON.stringify(compact(list)))
+    }catch{
+        try{
+            localStorage.removeItem(KEY);
+            localStorage.setItem(KEY,JSON.stringify(compact(list)))
+        }catch{}
+    }
+    render();
+}
 
-function db(){ return new Promise(resolve=>{ if(!("indexedDB" in window)) return resolve(null); const r=indexedDB.open(AUDIO_DB,1); r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains(STORE))r.result.createObjectStore(STORE)}; r.onsuccess=()=>resolve(r.result); r.onerror=()=>resolve(null); });}
+function db(){
+    return new Promise(resolve=>{
+        if(!("indexedDB" in window)) return resolve(null);
 
-async function saveAudio(id,data){ if(!data)return; const d=await db(); if(!d)return; const t=d.transaction(STORE,"readwrite");t.objectStore(STORE).put(data,id);t.oncomplete=()=>d.close(); }
+        const r=indexedDB.open(AUDIO_DB,1);
 
-async function getAudio(id){ const d=await db(); if(!d)return ""; return new Promise(resolve=>{const r=d.transaction(STORE,"readonly").objectStore(STORE).get(id);r.onsuccess=()=>{d.close();resolve(typeof r.result==="string"?r.result:"")};r.onerror=()=>{d.close();resolve("")}}); }
+        r.onupgradeneeded=()=>{
+            if(!r.result.objectStoreNames.contains(STORE))
+                r.result.createObjectStore(STORE)
+        };
 
-async function deleteAudio(id){const d=await db();if(!d)return;const t=d.transaction(STORE,"readwrite");t.objectStore(STORE).delete(id);t.oncomplete=()=>d.close()}
+        r.onsuccess=()=>resolve(r.result);
+        r.onerror=()=>resolve(null);
+    });
+}
 
-function stopSound(id){ const a=playing.get(id); if(a){a.pause();a.currentTime=0;a.removeAttribute("src");a.load();playing.delete(id)} const c=contexts.get(id);if(c){c.close();contexts.delete(id)} }
+async function saveAudio(id,data){
+    if(!data)return;
+    const d=await db();
+    if(!d)return;
 
-function fallback(id){ try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const c=new C(),o=c.createOscillator(),g=c.createGain();contexts.set(id,c);o.type="square";o.frequency.value=740;g.gain.value=.0001;o.connect(g);g.connect(c.destination);o.start(); const beat=()=>{if(!contexts.has(id))return;const t=c.currentTime;g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.13,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.25)};beat();const interval=setInterval(beat,650);c.onstatechange=()=>{if(c.state==="closed")clearInterval(interval)}}catch{}}
+    const t=d.transaction(STORE,"readwrite");
+    t.objectStore(STORE).put(data,id);
+    t.oncomplete=()=>d.close();
+}
 
-function play(item){ if(item.musicDataUrl){const a=new Audio(item.musicDataUrl);a.loop=true;playing.set(item.id,a);a.play().catch(()=>{playing.delete(item.id);fallback(item.id)})}else fallback(item.id) }
+async function getAudio(id){
+    const d=await db();
+    if(!d)return "";
 
-function checkDue(){ if(!ready)return;const due=items.filter(x=>!x.completed&&new Date(x.targetAt).getTime()<=now);if(!due.length)return;const next=items.map(x=>due.some(d=>d.id===x.id)?{...x,completed:true}:x);persist(next);due.forEach(x=>{if(!x.alarmed){x.alarmed=true;play(x)}}); }
+    return new Promise(resolve=>{
+        const r=d.transaction(STORE,"readonly").objectStore(STORE).get(id);
 
-async function load(){try{const saved=JSON.parse(localStorage.getItem(KEY)||"[]");items=saved.map(x=>({...x,musicDataUrl:"",alarmed:false}));ready=true;render();const audio=await Promise.all(items.map(async x=>[x.id,await getAudio(x.id)]));const map=new Map(audio);items=items.map(x=>({...x,musicDataUrl:map.get(x.id)||""}));render()}catch{ready=true;render()}}
+        r.onsuccess=()=>{
+            d.close();
+            resolve(typeof r.result==="string"?r.result:"")
+        };
 
-function nav(next){page=next;search="";render();scrollTo(0,0)}
+        r.onerror=()=>{
+            d.close();
+            resolve("")
+        }
+    });
+}
 
-function layout(content){const count=items.length;return `<div class="app"><aside class="sidebar"><a class="brand" href="#" data-nav="home"><span class="mark"></span><span class="brand-name">geri<span>sayım</span></span></a><p class="nav-label">Kontrol masası</p><nav class="nav"><button class="${page==="home"?"active":""}" data-nav="home">⌂ <span>Ana Sayfa</span></button><button class="${page==="countdowns"?"active":""}" data-nav="countdowns">☷ <span>Geri Sayımlar</span>${count?`<small style="margin-left:auto;opacity:.55">${count}</small>`:""}</button></nav><div class="side-note"><strong>Zaman burada görünür.</strong>Önemli anlarını tek bir yerde tut. Verilerin yalnızca bu tarayıcıda saklanır.</div></aside><header class="mobile"><a class="brand" href="#" data-nav="home"><span class="mark"></span><span class="brand-name">geri<span>sayım</span></span></a><nav class="mobile-nav"><button class="${page==="home"?"active":""}" data-nav="home" aria-label="Ana Sayfa">⌂</button><button class="${page==="countdowns"?"active":""}" data-nav="countdowns" aria-label="Geri Sayımlar">☷</button></nav></header><main class="main">${content}</main></div>`}
+async function deleteAudio(id){
+    const d=await db();
+    if(!d)return;
 
-function liveClock(){const d=new Date(now),time=`${pad(d.getHours())}:${pad(d.getMinutes())}`,ms=pad(d.getMilliseconds(),3);return `<section class="clock"><div class="clock-top"><span class="eyebrow">Şu an</span><span style="color:var(--teal);font-size:20px">◷</span></div><div><div class="clock-reading">${time}<span class="clock-seconds">:${pad(d.getSeconds())}</span><span class="clock-ms">.${ms}</span></div><div class="clock-date">${new Intl.DateTimeFormat("tr-TR",{weekday:"long",day:"numeric",month:"long"}).format(d)}</div></div><div><div class="rule"></div><div class="clock-foot"><span><i class="dot"></i>Yerel saat</span><span>Milisaniye hassasiyeti</span></div></div></section>`}
+    const t=d.transaction(STORE,"readwrite");
+    t.objectStore(STORE).delete(id);
+    t.oncomplete=()=>d.close()
+}
 
-function home(){const active=items.filter(x=>!x.completed).sort((a,b)=>new Date(a.targetAt)-new Date(b.targetAt));return layout(`<div class="wrap"><div class="topline"><div><div class="eyebrow">Kişisel zaman istasyonu</div><h1>Önündeki zamana<br>yer aç.</h1><p class="subtitle">Önemli anlar yaklaşırken onları görünür, sakin ve tam zamanında tut.</p></div><button class="primary" data-nav="create">＋ Geri Sayım Oluştur</button></div><div class="hero-grid"><section class="hero"><div class="eyebrow">Bugünün ritmi</div><h2>Bir sonraki<br>önemli anın<br>ne zaman?</h2><p>Küçük bir sayaç, büyük bir fark yaratır. Bir tarih seç; kalan zamanı burada birlikte izleyelim.</p><div class="actions"><button class="primary" data-nav="create">Yeni bir an ekle ›</button><button class="secondary" data-nav="countdowns">Güncel Geri Sayımlar</button></div></section>${liveClock()}</div><div class="section-head"><h2>Yaklaşan anlar</h2><button data-nav="countdowns">Tümünü gör ›</button></div>${active.length?`<div class="mini-list">${active.slice(0,3).map(x=>`<div class="mini"><div><div class="mini-title">${esc(x.name)}</div><div class="meta">${targetText(x.targetAt)}</div></div><div class="mini-time">${remain(new Date(x.targetAt)-now)}</div></div>`).join("")}</div>`:`<div class="empty-mini">Henüz yaklaşan bir an yok. İlk geri sayımını kurmak için yukarıdaki düğmeyi kullan.</div>`}</div>`)}
+function stopSound(id){
+    const a=playing.get(id);
 
-function create(){const initial=new Date(Date.now()+60000);return layout(`<div class="wrap form-wrap"><div class="topline"><div><button class="quiet" data-nav="home">‹ Ana sayfa</button><div class="eyebrow" style="margin-top:27px">Yeni zaman noktası</div><h1>Bir anı<br>işaretle.</h1><p class="subtitle">Detayları ekle; zamanı geldiğinde seni burada karşılayalım.</p></div></div><form class="form-card" id="create-form"><div class="form-grid"><label class="field full"><span class="label">Geri Sayım İsmi</span><input class="input" id="name" required maxlength="90" autofocus placeholder="Örn. Sunum, tatil, yeni başlangıç"></label><label class="field full"><span class="label">Açıklaması <span class="hint">(isteğe bağlı)</span></span><textarea class="textarea" id="description" maxlength="280" placeholder="Bu an neden önemli?"></textarea></label><label class="field full"><span class="label">Müzik Sesi Seç <span class="hint">(isteğe bağlı)</span></span><input class="file" id="music" type="file" accept="audio/*"><span class="hint" id="file-label">Dosya seçilmezse klasik alarm sesi kullanılır.</span></label><label class="field"><span class="label">Geri Sayım Tarihi</span><input class="input" id="date" type="date" min="${localDate(new Date())}" value="${localDate(initial)}" required></label><label class="field"><span class="label">Geri Sayım Saati</span><input class="input" id="time" type="time" step="1" value="${localTime(initial)}" required><span class="hint">Başlangıç saati şu andan bir dakika sonrasıdır.</span></label></div><div class="error" id="form-error"></div><div class="form-actions"><button type="button" class="secondary" data-nav="home">Vazgeç</button><button class="primary" type="submit">◷ Geri Sayım Oluştur</button></div></form></div>`)}
+    if(a){
+        a.pause();
+        a.currentTime=0;
+        a.removeAttribute("src");
+        a.load();
+        playing.delete(id)
+    }
 
-function card(x){const alarm=x.completed&&!x.alarmDismissed;const hint=cat(`${x.name} ${x.description}`);return `<article class="card ${alarm?"alarm":""}" data-id="${x.id}"><div><div class="card-top"><button class="star ${x.isFavorite?"favorite":""}" data-action="favorite" aria-label="Favorilere ekle" title="Favorilere ekle">${x.isFavorite?"★":"☆"}</button><h3 class="name">${esc(x.name)}</h3>${hint?`<span class="badge">${esc(hint)}</span>`:""}${x.musicName?`<span class="badge teal">♫ Müzik</span>`:""}${x.completed?`<span class="badge coral">${alarm?"Alarm":"Tamamlandı"}</span>`:""}</div>${x.description?`<p class="desc">${esc(x.description)}</p>`:""}<div class="card-date">▣ ${targetText(x.targetAt)}</div><div class="card-actions"><button class="icon" data-action="delete" title="Sil">⌫</button></div></div><div class="timebox"><div class="remaining">${remain(new Date(x.targetAt)-now)}</div><div class="target">${alarm?"Zamanı geldi":x.completed?"Alarm susturuldu":"kalan süre"}</div>${alarm?`<div class="alarm-display">${x.musicName?`<span style="font:11px ui-monospace">00:00:00.000</span>`:`<span class="bell-face"></span><span>Klasik alarm</span>`}</div><div class="alarm-actions"><button class="primary" data-action="mute">Sustur</button><button class="danger" data-action="delete">Sil</button></div>`:""}</div></article>`}
+    const c=contexts.get(id);
 
-function countdowns(){let list=items.filter(x=>{const q=search.trim().toLocaleLowerCase("tr-TR");return !q||`${x.name} ${x.description}`.toLocaleLowerCase("tr-TR").includes(q)});list.sort((a,b)=>sort==="favorite"?Number(b.isFavorite)-Number(a.isFavorite)||new Date(a.targetAt)-new Date(b.targetAt):new Date(a.targetAt)-new Date(b.targetAt));return layout(`<div class="wrap"><div class="topline"><div><div class="eyebrow">Zaman çizelgen</div><h1>Güncel Geri<br>Sayım<span style="color:var(--coral)">lar.</span></h1><p class="subtitle">${items.filter(x=>!x.completed).length?items.filter(x=>!x.completed).length+" yaklaşan anın var."+"":"Yaklaşan anların burada görünecek."} Aramak, sıralamak ve yeniden ziyaret etmek için tek bir masa.</p></div><button class="primary" data-nav="create">＋ Geri Sayım Oluştur</button></div><div class="toolbar"><div class="search"><span style="position:absolute;left:13px;top:11px;color:var(--muted)">⌕</span><input class="input" id="search" type="search" value="${esc(search)}" placeholder="Başlık veya açıklamada ara..."></div><select class="sort" id="sort"><option value="time" ${sort==="time"?"selected":""}>Vakte Göre (Azalan)</option><option value="favorite" ${sort==="favorite"?"selected":""}>Favoriler</option></select></div>${list.length?`<div class="list">${list.map(card).join("")}</div>`:`<div class="list-empty"><div class="empty-orbit">◷</div><h3>${search.trim()?"Bu arama sessiz kaldı.":"İlk anını burada başlat."}</h3><p>${search.trim()?"Başlık veya açıklamada başka kelimeler dene. Kategorileri de otomatik olarak yakalarız.":"Önemli bir tarih seç, gerisini geri sayıma bırak. Tüm kayıtların bu tarayıcıda güvende."}</p>${search.trim()?"":`<button class="primary" data-nav="create">＋ Geri Sayım Oluştur</button>`}</div>`}</div>`)}
+    if(c){
+        c.close();
+        contexts.delete(id)
+    }
+}
 
-function render(){app.innerHTML=page==="home"?home():page==="create"?create():countdowns();bind()}
+function fallback(id){
+    try{
+        const C=window.AudioContext||window.webkitAudioContext;
+        if(!C)return;
 
-function bind(){document.querySelectorAll("[data-nav]").forEach(e=>e.onclick=a=>{a.preventDefault();nav(e.dataset.nav)});const form=document.getElementById("create-form");if(form){const file=document.getElementById("music");file.onchange=()=>{document.getElementById("file-label").textContent=file.files[0]?`Seçildi: ${file.files[0].name}`:"Dosya seçilmezse klasik alarm sesi kullanılır."};form.onsubmit=async e=>{e.preventDefault();const name=document.getElementById("name").value.trim(),date=document.getElementById("date").value,time=document.getElementById("time").value,target=new Date(`${date}T${time}`);const error=document.getElementById("form-error");if(!name){error.textContent="Geri sayımına bir isim vermelisin.";return}if(!date||!time||isNaN(target)||target<=new Date()){error.textContent="Geri sayım tarihi ve saati gelecekte olmalı.";return}const f=file.files[0],id=crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random();const item={id,name,description:document.getElementById("description").value.trim(),targetAt:target.toISOString(),isFavorite:false,musicName:f?f.name:"",musicDataUrl:"",completed:false,alarmDismissed:false,alarmed:false};if(f){const r=new FileReader();r.onload=async()=>{item.musicDataUrl=typeof r.result==="string"?r.result:"";await saveAudio(id,item.musicDataUrl);persist([item,...items]);nav("countdowns")};r.readAsDataURL(f)}else{persist([item,...items]);nav("countdowns")}}}const input=document.getElementById("search");if(input){input.oninput=()=>{search=input.value;render();const n=document.getElementById("search");n.focus();n.setSelectionRange(search.length,search.length)};document.getElementById("sort").onchange=e=>{sort=e.target.value;render()}}document.querySelectorAll("[data-action]").forEach(e=>e.onclick=async()=>{const id=e.closest("[data-id]").dataset.id,x=items.find(i=>i.id===id);if(!x)return;if(e.dataset.action==="favorite"){persist(items.map(i=>i.id===id?{...i,isFavorite:!i.isFavorite}:i))}if(e.dataset.action==="mute"){stopSound(id);persist(items.map(i=>i.id===id?{...i,alarmDismissed:true}:i))}if(e.dataset.action==="delete"&&confirm("Bu geri sayımı silmek istediğine emin misin?")){stopSound(id);await deleteAudio(id);persist(items.filter(i=>i.id!==id))}})}
+        const c=new C(),
+        o=c.createOscillator(),
+        g=c.createGain();
+
+        contexts.set(id,c);
+
+        o.type="square";
+        o.frequency.value=740;
+        g.gain.value=.0001;
+
+        o.connect(g);
+        g.connect(c.destination);
+        o.start();
+
+        const beat=()=>{
+            if(!contexts.has(id))return;
+
+            const t=c.currentTime;
+
+            g.gain.setValueAtTime(.0001,t);
+            g.gain.exponentialRampToValueAtTime(.13,t+.02);
+            g.gain.exponentialRampToValueAtTime(.0001,t+.25)
+        };
+
+        beat();
+
+        const interval=setInterval(beat,650);
+
+        c.onstatechange=()=>{
+            if(c.state==="closed")
+                clearInterval(interval)
+        }
+    }catch{}
+}
+
+function play(item){
+    if(item.musicDataUrl){
+        const a=new Audio(item.musicDataUrl);
+        a.loop=true;
+        playing.set(item.id,a);
+
+        a.play().catch(()=>{
+            playing.delete(item.id);
+            fallback(item.id)
+        })
+    }else{
+        fallback(item.id)
+    }
+}
+
+function checkDue(){
+    if(!ready)return;
+
+    const due=items.filter(
+        x=>!x.completed&&new Date(x.targetAt).getTime()<=now
+    );
+
+    if(!due.length)return;
+
+    const next=items.map(
+        x=>due.some(d=>d.id===x.id)
+        ?{...x,completed:true}
+        :x
+    );
+
+    persist(next);
+
+    due.forEach(x=>{
+        if(!x.alarmed){
+            x.alarmed=true;
+            play(x)
+        }
+    });
+}
+
+async function load(){
+    try{
+        const saved=JSON.parse(localStorage.getItem(KEY)||"[]");
+
+        items=saved.map(x=>({
+            ...x,
+            musicDataUrl:"",
+            alarmed:false
+        }));
+
+        ready=true;
+        render();
+
+        const audio=await Promise.all(
+            items.map(async x=>[
+                x.id,
+                await getAudio(x.id)
+            ])
+        );
+
+        const map=new Map(audio);
+
+        items=items.map(x=>({
+            ...x,
+            musicDataUrl:map.get(x.id)||""
+        }));
+
+        render()
+    }catch{
+        ready=true;
+        render()
+    }
+}
+
+function nav(next){
+    page=next;
+    search="";
+    render();
+    scrollTo(0,0)
+}
+
+function layout(content){
+    const count=items.length;
+
+    return `<div class="app">
+        <aside class="sidebar">
+            <a class="brand" href="#" data-nav="home">
+                <span class="mark"></span>
+                <span class="brand-name">geri<span>sayım</span></span>
+            </a>
+
+            <p class="nav-label">Kontrol masası</p>
+
+            <nav class="nav">
+                <button class="${page==="home"?"active":""}" data-nav="home">
+                    ⌂ <span>Ana Sayfa</span>
+                </button>
+
+                <button class="${page==="countdowns"?"active":""}" data-nav="countdowns">
+                    ☷ <span>Geri Sayımlar</span>
+                    ${count?`<small style="margin-left:auto;opacity:.55">${count}</small>`:""}
+                </button>
+            </nav>
+
+            <div class="side-note">
+                <strong>Zaman burada görünür.</strong>
+                Önemli anlarını tek bir yerde tut. Verilerin yalnızca bu tarayıcıda saklanır.
+            </div>
+        </aside>
+
+        <header class="mobile">
+            <a class="brand" href="#" data-nav="home">
+                <span class="mark"></span>
+                <span class="brand-name">geri<span>sayım</span></span>
+            </a>
+
+            <nav class="mobile-nav">
+                <button class="${page==="home"?"active":""}" data-nav="home" aria-label="Ana Sayfa">⌂</button>
+                <button class="${page==="countdowns"?"active":""}" data-nav="countdowns" aria-label="Geri Sayımlar">☷</button>
+            </nav>
+        </header>
+
+        <main class="main">${content}</main>
+    </div>`
+}
+
+function liveClock(){
+    const d=new Date(now),
+    time=`${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    ms=pad(d.getMilliseconds(),3);
+
+    return `<section class="clock">
+        <div class="clock-top">
+            <span class="eyebrow">Şu an</span>
+            <span style="color:var(--teal);font-size:20px">◷</span>
+        </div>
+
+        <div>
+            <div class="clock-reading">
+                ${time}
+                <span class="clock-seconds">:${pad(d.getSeconds())}</span>
+                <span class="clock-ms">.${ms}</span>
+            </div>
+
+            <div class="clock-date">
+                ${new Intl.DateTimeFormat("tr-TR",{
+                    weekday:"long",
+                    day:"numeric",
+                    month:"long"
+                }).format(d)}
+            </div>
+        </div>
+
+        <div>
+            <div class="rule"></div>
+
+            <div class="clock-foot">
+                <span><i class="dot"></i>Yerel saat</span>
+                <span>Milisaniye hassasiyeti</span>
+            </div>
+        </div>
+    </section>`
+}
+
+function home(){
+    const active=items
+        .filter(x=>!x.completed)
+        .sort((a,b)=>new Date(a.targetAt)-new Date(b.targetAt));
+
+    return layout(`<div class="wrap">
+
+        <div class="topline">
+            <div>
+                <div class="eyebrow">Kişisel zaman istasyonu</div>
+
+                <h1>Önündeki zamana<br>yer aç.</h1>
+
+                <p class="subtitle">
+                    Önemli anlar yaklaşırken onları görünür, sakin ve tam zamanında tut.
+                </p>
+            </div>
+
+            <button class="primary" data-nav="create">
+                ＋ Geri Sayım Oluştur
+            </button>
+        </div>
+
+        <div class="hero-grid">
+
+            <section class="hero">
+                <div class="eyebrow">Bugünün ritmi</div>
+
+                <h2>
+                    Bir sonraki<br>
+                    önemli anın<br>
+                    ne zaman?
+                </h2>
+
+                <p>
+                    Küçük bir sayaç, büyük bir fark yaratır. Bir tarih seç; kalan zamanı burada birlikte izleyelim.
+                </p>
+
+                <div class="actions">
+                    <button class="primary" data-nav="create">
+                        Yeni bir an ekle ›
+                    </button>
+
+                    <button class="secondary" data-nav="countdowns">
+                        Güncel Geri Sayımlar
+                    </button>
+                </div>
+            </section>
+
+            ${liveClock()}
+
+        </div>
+
+        <div class="section-head">
+            <h2>Yaklaşan anlar</h2>
+            <button data-nav="countdowns">Tümünü gör ›</button>
+        </div>
+
+        ${active.length
+            ?`<div class="mini-list">
+                ${active.slice(0,3).map(x=>`
+                    <div class="mini">
+                        <div>
+                            <div class="mini-title">${esc(x.name)}</div>
+                            <div class="meta">${targetText(x.targetAt)}</div>
+                        </div>
+
+                        <div class="mini-time">
+                            ${remain(new Date(x.targetAt)-now)}
+                        </div>
+                    </div>
+                `).join("")}
+            </div>`
+            :`<div class="empty-mini">
+                Henüz yaklaşan bir an yok. İlk geri sayımını kurmak için yukarıdaki düğmeyi kullan.
+            </div>`
+        }
+
+    </div>`)
+}
+
+function create(){
+    const initial=new Date(Date.now()+60000);
+
+    return layout(`<div class="wrap form-wrap">
+
+        <div class="topline">
+            <div>
+                <button class="quiet" data-nav="home">‹ Ana sayfa</button>
+
+                <div class="eyebrow" style="margin-top:27px">
+                    Yeni zaman noktası
+                </div>
+
+                <h1>Bir anı<br>işaretle.</h1>
+
+                <p class="subtitle">
+                    Detayları ekle; zamanı geldiğinde seni burada karşılayalım.
+                </p>
+            </div>
+        </div>
+
+        <form class="form-card" id="create-form">
+
+            <div class="form-grid">
+
+                <label class="field full">
+                    <span class="label">Geri Sayım İsmi</span>
+                    <input class="input" id="name" required maxlength="90"
+                    autofocus placeholder="Örn. Sunum, tatil, yeni başlangıç">
+                </label>
+
+                <label class="field full">
+                    <span class="label">
+                        Açıklaması <span class="hint">(isteğe bağlı)</span>
+                    </span>
+
+                    <textarea class="textarea" id="description"
+                    maxlength="280"
+                    placeholder="Bu an neden önemli?"></textarea>
+                </label>
+
+                <label class="field full">
+                    <span class="label">
+                        Müzik Sesi Seç <span class="hint">(isteğe bağlı)</span>
+                    </span>
+
+                    <input class="file" id="music" type="file" accept="audio/*">
+
+                    <span class="hint" id="file-label">
+                        Dosya seçilmezse klasik alarm sesi kullanılır.
+                    </span>
+                </label>
+
+                <label class="field">
+                    <span class="label">Geri Sayım Tarihi</span>
+
+                    <input class="input" id="date" type="date"
+                    min="${localDate(new Date())}"
+                    value="${localDate(initial)}"
+                    required>
+                </label>
+
+                <label class="field">
+                    <span class="label">Geri Sayım Saati</span>
+
+                    <input class="input" id="time" type="time"
+                    step="1"
+                    value="${localTime(initial)}"
+                    required>
+
+                    <span class="hint">
+                        Başlangıç saati şu andan bir dakika sonrasıdır.
+                    </span>
+                </label>
+
+            </div>
+
+            <div class="error" id="form-error"></div>
+
+            <div class="form-actions">
+                <button type="button" class="secondary" data-nav="home">
+                    Vazgeç
+                </button>
+
+                <button class="primary" type="submit">
+                    ◷ Geri Sayım Oluştur
+                </button>
+            </div>
+
+        </form>
+
+    </div>`)
+}
+
+function card(x){
+    const alarm=x.completed&&!x.alarmDismissed;
+    const hint=cat(`${x.name} ${x.description}`);
+
+    return `<article class="card ${alarm?"alarm":""}" data-id="${x.id}">
+
+        <div>
+
+            <div class="card-top">
+
+                <button class="star ${x.isFavorite?"favorite":""}"
+                data-action="favorite"
+                aria-label="Favorilere ekle"
+                title="Favorilere ekle">
+                    ${x.isFavorite?"★":"☆"}
+                </button>
+
+                <h3 class="name">${esc(x.name)}</h3>
+
+                ${hint?`<span class="badge">${esc(hint)}</span>`:""}
+
+                ${x.musicName?`<span class="badge teal">♫ Müzik</span>`:""}
+
+                ${x.completed
+                    ?`<span class="badge coral">
+                        ${alarm?"Alarm":"Tamamlandı"}
+                    </span>`
+                    :""
+                }
+
+            </div>
+
+            ${x.description
+                ?`<p class="desc">${esc(x.description)}</p>`
+                :""
+            }
+
+            <div class="card-date">
+                ▣ ${targetText(x.targetAt)}
+            </div>
+
+            <div class="card-actions">
+                <button class="icon" data-action="delete" title="Sil">
+                    ⌫
+                </button>
+            </div>
+
+        </div>
+
+        <div class="timebox">
+
+            <div class="remaining">
+                ${remain(new Date(x.targetAt)-now)}
+            </div>
+
+            <div class="target">
+                ${alarm?"Zamanı geldi":x.completed?"Alarm susturuldu":"kalan süre"}
+            </div>
+
+            ${alarm
+                ?`<div class="alarm-display">
+                    ${x.musicName
+                        ?`<span style="font:11px ui-monospace">00:00:00.000</span>`
+                        :`<span class="bell-face"></span>
+                           <span>Klasik alarm</span>`
+                    }
+                </div>
+
+                <div class="alarm-actions">
+                    <button class="primary" data-action="mute">
+                        Sustur
+                    </button>
+
+                    <button class="danger" data-action="delete">
+                        Sil
+                    </button>
+                </div>`
+                :""
+            }
+
+        </div>
+
+    </article>`
+}
+
+function countdowns(){
+    let list=items.filter(x=>{
+        const q=search.trim().toLocaleLowerCase("tr-TR");
+
+        return !q ||
+        `${x.name} ${x.description}`
+        .toLocaleLowerCase("tr-TR")
+        .includes(q)
+    });
+
+    list.sort((a,b)=>
+        sort==="favorite"
+        ?Number(b.isFavorite)-Number(a.isFavorite)||
+         new Date(a.targetAt)-new Date(b.targetAt)
+        :new Date(a.targetAt)-new Date(b.targetAt)
+    );
+
+    return layout(`<div class="wrap">
+
+        <div class="topline">
+
+            <div>
+
+                <div class="eyebrow">Zaman çizelgen</div>
+
+                <h1>
+                    Güncel Geri<br>
+                    Sayım<span style="color:var(--coral)">lar.</span>
+                </h1>
+
+                <p class="subtitle">
+                    ${
+                        items.filter(x=>!x.completed).length
+                        ?items.filter(x=>!x.completed).length+" yaklaşan anın var."
+                        :"Yaklaşan anların burada görünecek."
+                    }
+                    Aramak, sıralamak ve yeniden ziyaret etmek için tek bir masa.
+                </p>
+
+            </div>
+
+            <button class="primary" data-nav="create">
+                ＋ Geri Sayım Oluştur
+            </button>
+
+        </div>
+
+        <div class="toolbar">
+
+            <div class="search">
+
+                <span style="position:absolute;left:13px;top:11px;color:var(--muted)">
+                    ⌕
+                </span>
+
+                <input class="input"
+                id="search"
+                type="search"
+                value="${esc(search)}"
+                placeholder="Başlık veya açıklamada ara...">
+
+            </div>
+
+            <select class="sort" id="sort">
+
+                <option value="time" ${sort==="time"?"selected":""}>
+                    Vakte Göre (Azalan)
+                </option>
+
+                <option value="favorite" ${sort==="favorite"?"selected":""}>
+                    Favoriler
+                </option>
+
+            </select>
+
+        </div>
+
+        ${
+            list.length
+            ?`<div class="list">
+                ${list.map(card).join("")}
+              </div>`
+            :`<div class="list-empty">
+
+                <div class="empty-orbit">◷</div>
+
+                <h3>
+                    ${search.trim()
+                        ?"Bu arama sessiz kaldı."
+                        :"İlk anını burada başlat."
+                    }
+                </h3>
+
+                <p>
+                    ${search.trim()
+                        ?"Başlık veya açıklamada başka kelimeler dene. Kategorileri de otomatik olarak yakalarız."
+                        :"Önemli bir tarih seç, gerisini geri sayıma bırak. Tüm kayıtların bu tarayıcıda güvende."
+                    }
+                </p>
+
+                ${
+                    search.trim()
+                    ?""
+                    :`<button class="primary" data-nav="create">
+                        ＋ Geri Sayım Oluştur
+                      </button>`
+                }
+
+            </div>`
+        }
+
+    </div>`)
+}
+
+function render(){
+    app.innerHTML=
+        page==="home"
+        ?home()
+        :page==="create"
+        ?create()
+        :countdowns();
+
+    bind()
+}
+
+function bind(){
+
+    document.querySelectorAll("[data-nav]").forEach(e=>
+        e.onclick=a=>{
+            a.preventDefault();
+            nav(e.dataset.nav)
+        }
+    );
+
+    const form=document.getElementById("create-form");
+
+    if(form){
+
+        const file=document.getElementById("music");
+
+        file.onchange=()=>{
+            document.getElementById("file-label").textContent=
+                file.files[0]
+                ?`Seçildi: ${file.files[0].name}`
+                :"Dosya seçilmezse klasik alarm sesi kullanılır."
+        };
+
+        form.onsubmit=async e=>{
+            e.preventDefault();
+
+            const name=document.getElementById("name").value.trim(),
+            date=document.getElementById("date").value,
+            time=document.getElementById("time").value,
+            target=new Date(`${date}T${time}`),
+            error=document.getElementById("form-error");
+
+            if(!name){
+                error.textContent="Geri sayımına bir isim vermelisin.";
+                return
+            }
+
+            if(!date||!time||isNaN(target)||target<=new Date()){
+                error.textContent="Geri sayım tarihi ve saati gelecekte olmalı.";
+                return
+            }
+
+            const f=file.files[0],
+            id=crypto.randomUUID
+                ?crypto.randomUUID()
+                :Date.now()+"-"+Math.random();
+
+            const item={
+                id,
+                name,
+                description:document.getElementById("description").value.trim(),
+                targetAt:target.toISOString(),
+                isFavorite:false,
+                musicName:f?f.name:"",
+                musicDataUrl:"",
+                completed:false,
+                alarmDismissed:false,
+                alarmed:false
+            };
+
+            if(f){
+
+                const r=new FileReader();
+
+                r.onload=async()=>{
+                    item.musicDataUrl=
+                        typeof r.result==="string"
+                        ?r.result
+                        :"";
+
+                    await saveAudio(id,item.musicDataUrl);
+
+                    persist([item,...items]);
+                    nav("countdowns")
+                };
+
+                r.readAsDataURL(f)
+
+            }else{
+
+                persist([item,...items]);
+                nav("countdowns")
+
+            }
+        }
+    }
+
+    const input=document.getElementById("search");
+
+    if(input){
+
+        input.oninput=()=>{
+            search=input.value;
+            render();
+
+            const n=document.getElementById("search");
+
+            n.focus();
+            n.setSelectionRange(search.length,search.length)
+        };
+
+        document.getElementById("sort").onchange=e=>{
+            sort=e.target.value;
+            render()
+        }
+    }
+
+    document.querySelectorAll("[data-action]").forEach(e=>
+        e.onclick=async()=>{
+            const id=e.closest("[data-id]").dataset.id,
+            x=items.find(i=>i.id===id);
+
+            if(!x)return;
+
+            if(e.dataset.action==="favorite"){
+
+                persist(
+                    items.map(i=>
+                        i.id===id
+                        ?{...i,isFavorite:!i.isFavorite}
+                        :i
+                    )
+                )
+            }
+
+            if(e.dataset.action==="mute"){
+
+                stopSound(id);
+
+                persist(
+                    items.map(i=>
+                        i.id===id
+                        ?{...i,alarmDismissed:true}
+                        :i
+                    )
+                )
+            }
+
+            if(
+                e.dataset.action==="delete"&&
+                confirm("Bu geri sayımı silmek istediğine emin misin?")
+            ){
+
+                stopSound(id);
+
+                await deleteAudio(id);
+
+                persist(
+                    items.filter(i=>i.id!==id)
+                )
+            }
+        }
+    )
+}
 
 load();
 
-setInterval(()=>{now=Date.now();checkDue();if(page==="home"){render()}else if(page==="countdowns"){document.querySelectorAll(".card").forEach(card=>{const item=items.find(x=>x.id===card.dataset.id);const reading=card.querySelector(".remaining");if(item&&reading)reading.textContent=remain(new Date(item.targetAt)-now)})}},47);
+setInterval(()=>{
+    now=Date.now();
 
-window.addEventListener("beforeunload",()=>{playing.forEach((_,id)=>stopSound(id));contexts.forEach(c=>c.close())});
+    checkDue();
 
-// Service Worker Kaydı (İlk kod + PWABuilder İçin)
+    if(page==="home"){
 
-if ('serviceWorker' in navigator) {
+        render()
 
-```
-navigator.serviceWorker.register('./sw.js')
-    .then(() => console.log('Service Worker başarıyla yüklendi!'))
-    .catch((err) => console.log('Service Worker yüklenemedi:', err));
+    }else if(page==="countdowns"){
 
-window.addEventListener('load', () => {
+        document.querySelectorAll(".card").forEach(card=>{
 
-    navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('Service Worker Kayıt Başarılı:', reg.scope))
-        .catch(err => console.log('Service Worker Kayıt Hatası:', err));
+            const item=items.find(
+                x=>x.id===card.dataset.id
+            );
 
+            const reading=card.querySelector(".remaining");
+
+            if(item&&reading)
+                reading.textContent=
+                    remain(new Date(item.targetAt)-now)
+        })
+    }
+
+},47);
+
+window.addEventListener("beforeunload",()=>{
+    playing.forEach((_,id)=>stopSound(id));
+    contexts.forEach(c=>c.close())
 });
-```
+
+
+// Service Worker Kaydı
+if("serviceWorker" in navigator){
+
+    window.addEventListener("load",()=>{
+
+        navigator.serviceWorker.register("./sw.js")
+
+            .then(reg=>
+                console.log(
+                    "Service Worker Kayıt Başarılı:",
+                    reg.scope
+                )
+            )
+
+            .catch(err=>
+                console.log(
+                    "Service Worker Kayıt Hatası:",
+                    err
+                )
+            );
+
+    });
 
 }
 
