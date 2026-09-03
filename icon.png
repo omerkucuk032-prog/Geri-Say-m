@@ -1,1 +1,15 @@
-iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAYAAAD0eNT6AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAALEgAACxIB0t1+/AAAABhJREFUeJztwTEBAAAAwqD1T20LL6AAAAAAAH4NCOAAAX1O9fUAAAAASUVORK5CYII=
+{
+  "name": "Geri Sayım",
+  "short_name": "Geri Sayım",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#193541",
+  "theme_color": "#193541",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
