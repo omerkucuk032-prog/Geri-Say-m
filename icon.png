@@ -1,7 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <rect width="512" height="512" rx="100" fill="#193541"/>
-  <circle cx="256" cy="256" r="160" fill="#d86d4a"/>
-  <circle cx="256" cy="256" r="115" fill="#f4f0e7"/>
-  <path d="M256 165v95h70" stroke="#193541" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-  <circle cx="256" cy="256" r="12" fill="#193541"/>
-</svg>
+from PIL import Image, ImageDraw
+
+# 512x512 boyutunda yüksek kaliteli bir görsel oluşturalım (192x192 için de aynısı kullanılabilir)
+img = Image.new("RGBA", (512, 512), (25, 53, 65, 255))  # #193541 Lacivert arkaplan
+draw = ImageDraw.Draw(img)
+
+# Dış turuncu çember (#d86d4a)
+draw.ellipse([96, 96, 416, 416], fill=(216, 109, 74, 255))
+# İç krem çember (#f4f0e7)
+draw.ellipse([140, 140, 372, 372], fill=(244, 240, 231, 255))
+
+# Saat akrep/yelkovan çizgileri (Lacivert)
+draw.line([256, 180, 256, 260], fill=(25, 53, 65, 255), width=16)
+draw.line([256, 260, 310, 260], fill=(25, 53, 65, 255), width=16)
+# Orta nokta
+draw.ellipse([244, 248, 268, 272], fill=(25, 53, 65, 255))
+
+# Dosyayı kaydedelim
+img.save("icon.png")
+print("icon.png başarıyla oluşturuldu!")
