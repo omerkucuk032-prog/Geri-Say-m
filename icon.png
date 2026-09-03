@@ -1,8 +1,0 @@
-from PIL import Image, ImageDraw
-
-img = Image.new('RGB', (512, 512), color='#193541')
-d = ImageDraw.Draw(img)
-d.ellipse([106, 106, 406, 406], fill='#d86d4a')
-d.ellipse([156, 156, 356, 356], fill='#f4f0e7')
-img.save('icon.png')
-print("icon.png başarıyla oluşturuldu!")
