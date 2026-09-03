@@ -1,21 +1,16 @@
 {
   "name": "Geri Sayım",
   "short_name": "Geri Sayım",
-  "description": "Alarm kurulabilen birden fazla geri sayımı takip edebileceğiniz uygulama",
+  "description": "Alarm kurulabilen birden fazla geri sayımı yakın vakitten uzak vakte inceleyebileceğiniz bir uygulamadır.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#193541",
+  "background_color": "#f4f0e7",
   "theme_color": "#193541",
   "icons": [
     {
-      "src": "icon.svg",
-      "sizes": "512x512",
-      "type": "image/svg+xml"
-    }
-    {
-      "src": "icon.png",
-      "sizes": "512x512",
-      "type": "image/png+xml"
+      "src": "./icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
     }
   ]
 }
