@@ -1,10 +1,9 @@
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open('gerisayim-v1').then((cache) => {
+    caches.open('geri-sayim-store').then((cache) => {
       return cache.addAll([
         './index.html',
-        './manifest.json',
-        './icon.png'
+        './icon.svg'
       ]);
     })
   );
