@@ -9,7 +9,13 @@
     {
       "src": "https://images.weserv.nl/?url=raw.githubusercontent.com/omerkucuk032-prog/Geri-Sayim/main/icon.svg&w=512&h=512&output=png",
       "sizes": "512x512",
-      "type": "svg",
+      "type": "icon.svg",
+      "purpose": "any"
+    }
+    {
+      "src": "https://images.weserv.nl/?url=raw.githubusercontent.com/omerkucuk032-prog/Geri-Sayim/main/icon.svg&w=512&h=512&output=png",
+      "sizes": "512x512",
+      "type": "icon.png",
       "purpose": "any"
     }
   ]
